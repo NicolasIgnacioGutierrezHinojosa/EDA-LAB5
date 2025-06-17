@@ -1,0 +1,235 @@
+import java.util.*;
+
+
+public class ConnectFourApp {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Nombre jugador A: ");
+        String a = sc.nextLine();
+        System.out.print("Nombre jugador B: ");
+        String b = sc.nextLine();
+
+        // Registrar jugadores en el marcador
+        Scoreboard scoreboard = new Scoreboard();
+        scoreboard.registerPlayer(a);
+        scoreboard.registerPlayer(b);
+
+        // Jugar partida
+        Game game = new Game(a, b);
+        String winner = game.play();
+
+        // Actualizar marcador
+        if (game.getStatus().equals("VICTORY")) {
+            String loser = winner.equals(a) ? b : a;
+            scoreboard.addGameResult(winner, loser, false);
+            System.out.println("¡Victoria de " + winner + "!");
+        } else {
+            // Empate
+            scoreboard.addGameResult(a, b, true);
+            System.out.println("¡Empate!");
+        }
+
+        // Mostrar estadísticas finales
+        System.out.println("\n--- Estadísticas ---");
+        for (Player p : scoreboard.getAllPlayers()) {
+            System.out.printf("%s → Wins: %d, Draws: %d, Losses: %d, WinRate: %.2f%%%n",
+                    p.getName(), p.getWins(), p.getDraws(), p.getLosses(), p.winRate() * 100);
+        }
+    }
+}
+
+class BST<K extends Comparable<K>, V> {
+    private class Node {
+        K key; V val; Node left, right;
+        Node(K k, V v) { key = k; val = v; }
+    }
+    private Node root;
+    public void insert(K key, V val) { root = insert(root, key, val); }
+    private Node insert(Node x, K k, V v) {
+        if (x == null) return new Node(k, v);
+        int cmp = k.compareTo(x.key);
+        if      (cmp < 0) x.left  = insert(x.left,  k, v);
+        else if (cmp > 0) x.right = insert(x.right, k, v);
+        else              x.val   = v;
+        return x;
+    }
+    public V search(K key) {
+        Node x = root;
+        while (x != null) {
+            int cmp = key.compareTo(x.key);
+            if      (cmp < 0) x = x.left;
+            else if (cmp > 0) x = x.right;
+            else              return x.val;
+        }
+        return null;
+    }
+    public void rangeSearch(K lo, K hi, List<V> out) { range(root, lo, hi, out); }
+    private void range(Node x, K lo, K hi, List<V> out) {
+        if (x==null) return;
+        if (lo.compareTo(x.key) < 0) range(x.left, lo, hi, out);
+        if (lo.compareTo(x.key) <= 0 && hi.compareTo(x.key) >= 0) out.add(x.val);
+        if (hi.compareTo(x.key) > 0) range(x.right, lo, hi, out);
+    }
+    public K successorKey(K key) {
+        Node succ = null, x = root;
+        while (x != null) {
+            int cmp = key.compareTo(x.key);
+            if (cmp < 0) { succ = x; x = x.left; }
+            else x = x.right;
+        }
+        return succ == null ? null : succ.key;
+    }
+    public void collectByKey(K key, List<V> out) {
+        V v = search(key);
+        if (v != null) out.add(v);
+    }
+}
+
+class HashST<K,V> {
+    private Map<K,V> map = new HashMap<>();
+    public void put(K k, V v) { map.put(k,v); }
+    public V get(K k) { return map.get(k); }
+    public boolean contains(K k) { return map.containsKey(k); }
+    public Collection<V> values() { return map.values(); }
+}
+
+class Player {
+    private String name;
+    private int wins=0, draws=0, losses=0;
+    public Player(String n) { name = n; }
+    public String getName() { return name; }
+    public void addWin()   { wins++; }
+    public void addDraw()  { draws++; }
+    public void addLoss()  { losses++; }
+    public int getWins()   { return wins; }
+    public int getDraws()  { return draws; }
+    public int getLosses(){ return losses; }
+    public double winRate() {
+        int total = wins + draws + losses;
+        return total==0 ? 0.0 : (double)wins/total;
+    }
+}
+
+class Scoreboard {
+    private BST<Integer,String> winTree = new BST<>();
+    private HashST<String,Player> players = new HashST<>();
+    public void registerPlayer(String name) {
+        if (!players.contains(name)) {
+            players.put(name, new Player(name));
+            winTree.insert(0, name);
+        }
+    }
+    public Player[] getAllPlayers() {
+        return players.values().toArray(new Player[0]);
+    }
+    public void addGameResult(String winner, String loser, boolean draw) {
+        registerPlayer(winner);
+        registerPlayer(loser);
+        Player pw = players.get(winner), pl = players.get(loser);
+        if (draw) {
+            pw.addDraw(); pl.addDraw();
+        } else {
+            pw.addWin(); pl.addLoss();
+        }
+        winTree.insert(pw.getWins(), pw.getName());
+    }
+    public Player[] winRange(int lo, int hi) {
+        List<String> names = new ArrayList<>();
+        winTree.rangeSearch(lo, hi, names);
+        return names.stream().map(players::get).toArray(Player[]::new);
+    }
+    public Player[] winSuccessor(int wins) {
+        Integer succ = winTree.successorKey(wins);
+        if (succ==null) return new Player[0];
+        List<String> names = new ArrayList<>();
+        winTree.collectByKey(succ, names);
+        return names.stream().map(players::get).toArray(Player[]::new);
+    }
+}
+
+class ConnectFour {
+    private char[][] grid = new char[7][6];
+    private char current = 'X';
+    public ConnectFour() {
+        for (int c=0; c<7; c++) Arrays.fill(grid[c], ' ');
+    }
+    public boolean makeMove(int col) {
+        if (col<0 || col>6) return false;
+        for (int r=0; r<6; r++) {
+            if (grid[col][r]==' ') {
+                grid[col][r] = current;
+                current = (current=='X') ? 'O' : 'X';
+                return true;
+            }
+        }
+        return false;
+    }
+    public String isGameOver() {
+        for (int c=0; c<7; c++) {
+            for (int r=0; r<6; r++) {
+                char p = grid[c][r];
+                if (p==' ') continue;
+                if (c<=3 && p==grid[c+1][r] && p==grid[c+2][r] && p==grid[c+3][r]) return ""+p;
+                if (r<=2 && p==grid[c][r+1] && p==grid[c][r+2] && p==grid[c][r+3]) return ""+p;
+                if (c<=3 && r<=2 && p==grid[c+1][r+1] && p==grid[c+2][r+2] && p==grid[c+3][r+3]) return ""+p;
+                if (c>=3 && r<=2 && p==grid[c-1][r+1] && p==grid[c-2][r+2] && p==grid[c-3][r+3]) return ""+p;
+            }
+        }
+        // Empate si columna superior llena
+        boolean full = true;
+        for (int c=0; c<7; c++) if (grid[c][5]==' ') { full=false; break; }
+        if (full) return "DRAW";
+        return null;
+    }
+    public void printBoard() {
+        for (int r=5; r>=0; r--) {
+            System.out.print("|");
+            for (int c=0; c<7; c++) System.out.print(grid[c][r] + "|");
+            System.out.println();
+        }
+        System.out.println(" 0 1 2 3 4 5 6 ");
+    }
+}
+
+class Game {
+    private String status = "IN_PROGRESS", winner = "";
+    private final String A, B;
+    private final ConnectFour board = new ConnectFour();
+
+    public Game(String a, String b) {
+        this.A = a; this.B = b;
+    }
+
+    public String play() {
+        Scanner sc = new Scanner(System.in);
+        boolean turnA = true;
+        while (true) {
+            board.printBoard();
+            String currentPlayer = turnA ? A : B;
+            System.out.print(currentPlayer + ", elige columna (0-6): ");
+            int col = sc.nextInt();
+            if (!board.makeMove(col)) {
+                System.out.println("Movimiento inválido, intenta de nuevo.");
+                continue;
+            }
+            String result = board.isGameOver();
+            if (result != null) {
+                if (result.equals("DRAW")) {
+                    status = "DRAW";
+                    winner = "";
+                } else {
+                    status = "VICTORY";
+                    // la ficha 'X' corresponde a quien empezó (A), 'O' a B
+                    winner = result.equals("X") ? A : B;
+                }
+                board.printBoard();
+                break;
+            }
+            turnA = !turnA;
+        }
+        return winner;
+    }
+
+    public String getStatus() { return status; }
+    public String getWinner() { return winner; }
+}
